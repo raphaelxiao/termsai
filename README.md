@@ -187,7 +187,7 @@ termsai/
 
 ## License
 
-[Choose an appropriate open-source license]
+MIT
 
 ---
 
