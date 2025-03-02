@@ -1,0 +1,965 @@
+/* 定义 CSS 变量, 新的优化配色方案 */
+:root {
+    --primary-color: #00a99d;      /* 主按钮及强调色 - 绿松石色 */
+    --primary-hover: #008c82;      /* 悬停时的深绿松石色 */
+    --background-light: #f0f7f6;    /* 较柔和的浅色背景 */
+    --border-color: #dde6e5;       /* 统一边框色 */
+    --text-color: #333;            /* 主要文字颜色 */
+    --title-color: #008c82;        /* 标题及提示文字颜色 */
+    --subtitle-color: #666;        /* 副标题及提示文字颜色 */
+    --green-accent: #00a99d;       /* 新增概念 "新增" 按钮色 */
+    --red-accent: #666;            /* 新增概念 "取消" 按钮色 */
+}
+
+@font-face {
+    font-family: 'NotoSansHans-Regular';
+    src: url('./NotoSansHans-Regular.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'NotoSansHans-Bold';
+    src: url('./NotoSansHans-Bold.otf') format('opentype');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'NotoSansHans-Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    height: 100vh;
+    overflow-y: auto; /* 改为 auto 允许垂直滚动 */
+    overflow-x: hidden; /* 禁用水平滚动 */
+    background-color: #fff;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.input-section {
+    padding: 15px;
+    background-color: var(--background-light);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+/* 允许PC端input-section整体分布得更好 */
+@media (min-width: 769px) {
+    .input-section {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        box-sizing: border-box;
+    }
+}
+
+input[type="text"] {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 16px;
+    box-sizing: border-box;
+    min-width: 0; /* 防止输入框溢出 */
+}
+
+button {
+    padding: 12px 24px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    white-space: nowrap;
+}
+
+button:hover {
+    background-color: var(--primary-hover);
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.header {
+    padding: 20px 0;
+    text-align: left;
+}
+
+.header h1 {
+    margin: 0;
+    font-family: 'NotoSansHans-Bold', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 30px;
+    color: var(--title-color);
+    line-height: 1;
+}
+
+.modal-title {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: #333;
+    text-align: left;
+    line-height: 1.2;
+}
+
+.modal-input-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.header .subtitle {
+    margin: 0 0 0 0;
+    font-size: 14px;
+    color: var(--subtitle-color);
+    margin-left: 10px;
+    margin-bottom: 1px;
+}
+
+.main-content {
+    display: flex;
+    gap: 20px;
+    flex: 1;
+    min-height: 0;
+}
+
+#network-container {
+    position: relative;
+    width: 100%;
+    height: 100%; /* 或者其他具体高度 */
+    min-height: 400px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;  /* 修复绘图区右侧溢出问题 */
+    box-sizing: border-box; /* 使得边框在内部 */
+}
+
+#network {
+    width: 100%;
+    height: 100%;
+}
+
+#network-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(245, 245, 245, 0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+#network-loading img {
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+#info-box {
+    flex: 1;
+    padding: 15px;
+    background-color: var(--background-light);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    min-height: 150px;
+    overflow-y: auto;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.progress-container {
+    display: none;
+    height: 8px;
+    background-color: #f0f0f0;
+    border: 1px solid var(--primary-color);
+    border-radius: 8px;
+    margin-top: 10px;
+    overflow: hidden;
+}
+
+/* 针对移动端（屏幕宽度不超过768px）：宽度为network-container的70%，居中显示 */
+@media (max-width: 768px) {
+    .progress-container {
+        width: 70%;
+        margin: 10px auto 0;
+    }
+}
+
+/* 针对PC端（屏幕宽度769px及以上）：宽度为network-container的70%，居中显示 */
+@media (min-width: 769px) {
+    .progress-container {
+        width: 50%;
+        margin: 10px auto 0;
+    }
+}
+
+/* 更新内部进度条样式 */
+.progress-bar {
+    width: 0%;
+    height: 100%;
+    background-color: var(--primary-color);
+    transition: width 0.3s ease;
+    border-radius: 8px;
+}
+
+/* 添加AI提示文本的样式 */
+.ai-disclaimer {
+    width: 100%;
+    height: 1.6em;
+    font-size: 12px;
+    color: var(--subtitle-color);
+    text-align: center;
+}
+
+.input-row {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.input-group label {
+    font-size: 16px;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.input-group input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+    max-width: 400px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.number-input {
+    white-space: nowrap;
+}
+
+.number-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.number-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f0f0f0;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 18px;
+    color: var(--text-color);
+    transition: all 0.2s ease;
+}
+
+.number-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.number-btn:active {
+    background-color: #d0d0d0;
+}
+
+#concept-count {
+    width: 40px;
+    text-align: center;
+    padding: 4px 0;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 16px;
+    margin: 0 2px;
+}
+
+.range-hint {
+    color: var(--subtitle-color);
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+#generate-btn {
+    align-self: center;
+    padding: 12px 24px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    white-space: nowrap;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* PC端限制总高度为1800px */
+@media (min-width: 769px) {
+    .container {
+        height: 98vh;
+        max-height: 1000px;
+    }
+    
+    /* 优化输入区域布局 */
+    .input-row {
+        display: flex;
+        gap: 15px;
+        width: 100%;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap; /* 允许换行 */
+    }
+    
+    .input-group:first-child {
+        flex: 2;
+    }
+    
+    .number-input {
+        flex: 1;
+        width: auto;
+        min-width: 180px;
+    }
+    
+    .input-group input[type="text"] {
+        width: 100%;
+        max-width: none;
+    }
+    
+    #generate-btn {
+        width: 100%; /* 与学习主题输入框等宽 */
+        box-sizing: border-box;
+        margin-top: 15px;
+        align-self: stretch; /* 填满父容器的宽度 */
+    }
+
+    #download-btn,
+    .feedback-btn {
+        width: auto;
+        padding: 0 16px;
+        gap: 8px;
+    }
+
+    .button-text {
+        display: inline-block;
+    }
+}
+
+/* 手机端相关优化 */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+        height: 97vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .header {
+        padding: 10px 0;
+        padding-top: 0px;
+        flex: 0 0 auto;
+    }
+
+    .main-content {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        gap: 15px;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+    
+    /* 将 .right-panel 的子元素"抬平"到 .main-content 里 */
+    .right-panel {
+        display: contents;
+    }
+    
+    /* 重新排序 .main-content 下的三个部分：
+       1. 输入区域放最前（order:1）
+       2. 网络图放中间（order:2）
+       3. info-box 放最后（order:3）
+    */
+    .input-section {
+        order: 1;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px;
+        flex: 0 0 auto;
+    }
+    
+    #network-container {
+        order: 2;
+        width: 100%;
+        min-height: 400px;
+    }
+    
+    #info-box {
+        order: 3;
+        width: 100%;
+        box-sizing: border-box;
+        flex: 0 0 100px; /* 固定高度，约4行文字 */
+        max-height: 100px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    #generate-btn {
+        width: 100%;
+        margin: 15px auto 0;
+        display: block;
+    }
+    
+    .input-row {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .input-group {
+        width: 100%;
+    }
+
+    #download-btn,
+    .feedback-btn {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+    }
+
+    .button-text {
+        display: none;
+    }
+}
+
+@media (max-height: 600px) {
+    #network-container {
+        flex: 2.5;
+    }
+    
+    #info-box {
+        flex: 0 0 100px;
+    }
+}
+
+/* 下载按钮和反馈按钮的通用样式 */
+#download-btn,
+.feedback-btn {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+}
+
+#download-btn i,
+.feedback-btn i {
+    font-size: 16px;
+}
+
+/* 下载按钮位置 */
+#download-btn {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    z-index: 10;
+}
+
+/* 反馈按钮容器 */
+.feedback-buttons {
+    position: absolute;
+    top: 66px;  /* 下载按钮高度(36px) + 间距(10px) + 顶部间距(20px) */
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10;
+}
+
+/* 调整按钮顺序 */
+#like-btn {
+    order: 2;  /* 放到第二位 */
+}
+
+#dislike-btn {
+    order: 1;  /* 放到第一位 */
+}
+
+/* 图标样式 */
+#download-btn i,
+.feedback-btn i,
+.search-graph-btn i {
+    font-size: 16px;  /* 减小图标尺寸 */
+}
+
+/* PC端样式 */
+@media (min-width: 769px) {
+    #download-btn,
+    .feedback-btn {
+        width: 120px; /* 固定宽度 */
+        padding: 0 16px;
+    }
+
+    .button-text {
+        display: inline-block;
+        margin-left: 8px;
+    }
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    #download-btn,
+    .feedback-btn {
+        width: 36px;
+    }
+
+    .button-text {
+        display: none;
+    }
+
+    #download-btn {
+        top: 10px;
+        right: 10px;
+    }
+
+    .feedback-buttons {
+        top: 58px;
+        right: 10px;
+        gap: 10px;
+    }
+}
+
+/* 悬停效果 */
+#download-btn:hover,
+.feedback-btn:hover {
+    background-color: var(--primary-hover);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 修改下载按钮样式，使其固定在网络图区域右下角 */
+#download-btn {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    padding: 8px 16px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
+}
+
+
+/* 统一图标大小 */
+#download-btn i,
+.feedback-btn i,
+.search-graph-btn i {
+    font-size: 16px;  /* 减小图标尺寸 */
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    #download-btn {
+        top: 10px;
+        right: 10px;
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+    
+    #download-btn,
+    .feedback-btn {
+        width: 28px;  /* 移动端更小的尺寸 */
+        height: 28px;
+    }
+    
+    #download-btn i,
+    .feedback-btn i,
+    .search-graph-btn i {
+        font-size: 14px;  /* 移动端更小的图标 */
+    }
+}
+
+/* PC端按钮样式 */
+@media (min-width: 769px) {
+    #download-btn,
+    .feedback-btn {
+        width: auto;
+        padding: 0 16px;
+        gap: 8px;
+    }
+
+    .button-text {
+        display: inline-block;
+    }
+}
+
+/* 移动端按钮样式 */
+@media (max-width: 768px) {
+    #download-btn,
+    .feedback-btn {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+    }
+
+    .button-text {
+        display: none;
+    }
+}
+
+/* 通用按钮样式 */
+#download-btn,
+.feedback-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 169, 157, 0.9); /* 修改为绿松石色 */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+    height: 36px;
+}
+
+#download-btn i,
+.feedback-btn i,
+.search-graph-btn i {
+    font-size: 16px;
+}
+
+.button-text {
+    white-space: nowrap;
+    font-size: 14px;
+}
+
+/* 按钮禁用状态样式 */
+#download-btn:disabled,
+.feedback-btn:disabled {
+    background-color: rgba(0, 169, 157, 0.4) !important; /* 修改为绿松石色 */
+    cursor: not-allowed;
+    pointer-events: none; /* 禁止所有鼠标/触摸事件 */
+}
+
+/* 移动端特别处理 */
+@media (max-width: 768px) {
+    .feedback-btn:disabled {
+        opacity: 0.5; /* 增加透明度以更明显地显示禁用状态 */
+        -webkit-tap-highlight-color: transparent; /* 移除移动端点击高亮 */
+    }
+    
+    .feedback-btn {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+}
+
+/* 新增概念模态弹窗样式 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;  /* 改为纵向排列 */
+    gap: 15px;
+}
+
+.modal-content input {
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.modal-add-btn {
+    padding: 10px 20px;
+    background-color: var(--green-accent);
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+}
+
+.modal-cancel-btn {
+    padding: 10px 20px;
+    background-color: var(--red-accent);
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+}
+
+/* 新增按钮面板样式，统一排列所有操作按钮 */
+#button-panel {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 统一按钮基础样式 */
+#button-panel button {
+    width: auto;
+    min-height: 36px;
+    padding: 8px 16px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
+}
+
+/* 可见按钮的flex布局 */
+#button-panel button:not(#search-graph-btn),
+#button-panel #search-graph-btn[style*="display: block"] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* 搜寻图谱按钮默认隐藏 */
+#button-panel #search-graph-btn {
+    display: block;
+}
+
+/* 按钮顺序控制 */
+#download-btn { order: 1; }
+#search-graph-btn { order: 2; }
+#add-concept-btn { order: 3; }
+#regenerate-btn { order: 4; }
+#like-btn { order: 5; }
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    #button-panel {
+        top: 10px;
+        right: 10px;
+        gap: 8px;
+    }
+
+    #button-panel button {
+        width: 36px;
+        min-height: 36px;
+        padding: 0;
+    }
+
+    #button-panel button .button-text {
+        display: none;
+    }
+
+    #button-panel button i {
+        font-size: 16px;
+    }
+}
+
+/* 统一按钮基础样式 */
+#download-btn,
+#search-graph-btn,
+#add-concept-btn,
+#dislike-btn,
+#like-btn {
+    position: absolute;
+    right: 20px;
+    z-index: 10;
+    width: 120px;
+    height: 36px;
+    padding: 0;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
+}
+
+/* 按钮位置设置 - 统一使用 10px 间距 */
+#download-btn {
+    top: 10px;
+}
+
+#search-graph-btn {
+    top: 56px; /* 10px + 36px + 10px */
+}
+
+#add-concept-btn {
+    top: 102px; /* 56px + 36px + 10px */
+}
+
+#dislike-btn {
+    top: 148px; /* 102px + 36px + 10px */
+}
+
+#like-btn {
+    top: 194px; /* 148px + 36px + 10px */
+}
+
+/* 移除 feedback-buttons 的定位 */
+.feedback-buttons {
+    position: static;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    #download-btn,
+    #search-graph-btn,
+    #add-concept-btn,
+    #dislike-btn,
+    #like-btn {
+        width: 36px;
+        right: 10px;
+    }
+
+    .button-text {
+        display: none;
+    }
+
+    i {
+        font-size: 16px;
+    }
+}
+
+/* 添加预览遮罩层样式 */
+.preview-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    cursor: pointer;
+}
+
+.preview-image {
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+    cursor: default;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .preview-image {
+        max-width: 95%;
+        max-height: 95%;
+    }
+}
+
+/* 修改全局触摸行为，允许垂直滚动 */
+* {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y; /* 允许垂直滚动，但禁用其他触摸行为 */
+}
+
+/* 允许特定元素的触摸行为 */
+input, textarea, #network, button {
+    touch-action: manipulation; /* 恢复这些元素的基本触摸操作 */
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+/* 为其他按钮添加 hover 效果 */
+#search-graph-btn:hover,
+#add-concept-btn:hover,
+#dislike-btn:hover,
+#like-btn:hover {
+    background-color: var(--primary-hover);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+} 

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>知识图谱生成器</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script type="text/javascript" src="{{ url_for('static', filename='js/vis-network.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tinycolor.min.js') }}"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="display: flex; align-items: flex-end;">
+                <h1>TermsAI</h1>
+                <p class="subtitle">输入主题，AI帮你梳理知识图谱</p>
+            </div>
+        </div>
+        <div class="main-content">
+            <div id="network-container">
+                <div id="network"></div>
+                <div id="network-loading">
+                    <img src="{{ url_for('static', filename='images/loading.png') }}" alt="加载中">
+                    <div class="progress-container">
+                        <div class="progress-bar"></div>
+                    </div>
+                </div>
+                <button id="download-btn">
+                    <i class="fas fa-download"></i>
+                    <span class="button-text">保存图片</span>
+                </button>
+                <button id="search-graph-btn" style="display: block;">
+                    <i class="fas fa-search"></i>
+                    <span class="button-text">搜寻图谱</span>
+                </button>
+                <div class="feedback-buttons">
+                    <button id="add-concept-btn" class="feedback-btn">
+                        <i class="fas fa-plus-circle"></i>
+                        <span class="button-text">新增概念</span>
+                    </button>
+                    <button id="dislike-btn" class="feedback-btn">
+                        <i class="fas fa-redo"></i>
+                        <span class="button-text">重新生成</span>
+                    </button>
+                    <button id="like-btn" class="feedback-btn">
+                        <i class="fas fa-thumbs-up"></i>
+                        <span class="button-text">效果不错</span>
+                    </button>
+                </div>
+                <div id="graph-id-display" style="position: absolute; top: 10px; left: 10px; padding: 0; border-radius: 5px; font-size: 12px; color: #333; display: none;">
+                    <div>
+                        图谱ID：<span id="graph-id-value">未生成</span>
+                        <i id="copy-icon" class="fas fa-copy" style="font-size: 12px; cursor: pointer; margin-left: 5px;"></i>
+                    </div>
+                    <div style="font-size: 12px; color: #666;">复制编号可用于右侧搜寻功能</div>
+                </div>
+            </div>
+            <div class="right-panel">
+                <div class="input-section">
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>学习主题：</label>
+                            <input type="text" id="topic-input" placeholder="输入主题..." onkeydown="if(event.key === 'Enter'){ document.getElementById('generate-btn').click(); }">
+                        </div>
+                        <div class="input-group number-input">
+                            <label>概念数量：</label>
+                            <div class="number-controls">
+                                <button class="number-btn" id="decrease">−</button>
+                                <input type="number" id="concept-count" value="10" min="5" max="20" readonly>
+                                <button class="number-btn" id="increase">+</button>
+                                <span class="range-hint">（范围：5~20）</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="generate-btn">生成图谱</button>
+                </div>
+                <div id="info-box" style="white-space: pre-line;">
+                    <div class="info-content"></div>
+                </div>
+            </div>
+        </div>
+        <div class="ai-disclaimer">内容由AI生成，仅供参考</div>
+    </div>
+    <div id="modal-overlay" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3 class="modal-title">新增概念到当前知识图谱</h3>
+            <div class="modal-input-group">
+                <input type="text" id="new-concept-input" placeholder="请输入新概念...">
+                <button id="confirm-add-concept" class="modal-add-btn">新增</button>
+                <button id="cancel-add-concept" class="modal-cancel-btn">取消</button>
+            </div>
+        </div>
+    </div>
+    <div id="modal-overlay-search" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3 class="modal-title">搜寻图谱</h3>
+            <div class="modal-input-group">
+                <input type="text" id="search-graph-input" placeholder="请输入图谱编号...">
+                <button id="confirm-search-graph" class="modal-add-btn">搜索</button>
+                <button id="cancel-search-graph" class="modal-cancel-btn">取消</button>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 
