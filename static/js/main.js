@@ -104,11 +104,11 @@ document.addEventListener('DOMContentLoaded', function() {
         progressBar.style.width = `${progress}%`;
         
         const loadingMessages = [
-            "正在分析概念关系...\n概念太多的话可能需时几分钟",
+            "正在分析节点关系...\n节点太多的话可能需时几分钟",
             "正在初始化...\n接下来可能需要几分钟",
-            "正在初始化新增概念流程",
-            "正在生成新概念详细描述",
-            "正在合并概念",
+            "正在初始化新增节点流程",
+            "正在生成新节点详细描述",
+            "正在合并节点",
             "正在生成网络数据"
         ];
         
@@ -173,6 +173,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!isLike) {
                 console.log("window.lastAddedConceptRequest:", window.lastAddedConceptRequest);
                 console.log("lastGeneratedTopic:", lastGeneratedTopic);
+                
+                // 在开始重新生成前，先显示加载状态到 info-box
+                infoBox.textContent = '正在重新生成图谱...';
+                progressContainer.style.display = 'block';
+                progressBar.style.width = '0%';
+                
                 if (window.isNewConceptGraph && window.lastAddedConceptRequest && window.lastAddedConceptRequest.topic) {
                     // 只有在确实是新增概念图谱的情况下才使用 lastAddedConceptRequest
                     requestData = {
@@ -923,7 +929,7 @@ document.addEventListener('DOMContentLoaded', function() {
     confirmAddConceptBtn.addEventListener('click', async () => {
         const newConcept = newConceptInput.value.trim();
         if (!newConcept) {
-            alert('请输入新概念');
+            alert('请输入新概念/人物');
             return;
         }
         modalOverlay.style.display = 'none';
@@ -1091,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (error.name === 'AbortError') {
                 infoBox.textContent = '生成已中止';
             } else {
-                infoBox.textContent = '新增概念失败，请重试';
+                infoBox.textContent = '新增节点失败，请重试';
             }
         } finally {
             isGenerating = false;
@@ -1335,7 +1341,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 页面加载时调用
     window.addEventListener('load', loadGraphDataFromUrl);
-}); 
+
+    // 添加二维码弹出功能
+    const feedbackLink = document.getElementById('feedback-link');
+    if (feedbackLink) {
+        feedbackLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // 创建弹出层
+            const qrOverlay = document.createElement('div');
+            qrOverlay.className = 'qr-overlay';
+            
+            // 创建二维码图片
+            const qrImage = document.createElement('img');
+            qrImage.src = '/static/images/qr.jpg';
+            qrImage.className = 'qr-image';
+            qrImage.alt = '反馈二维码';
+            
+            // 添加到页面
+            qrOverlay.appendChild(qrImage);
+            document.body.appendChild(qrOverlay);
+            
+            // 点击弹出层任意位置关闭
+            qrOverlay.addEventListener('click', function() {
+                document.body.removeChild(qrOverlay);
+            });
+        });
+    }
+});
 
 document.getElementById('download-btn').addEventListener('click', async function() {
     if (!network) return;
