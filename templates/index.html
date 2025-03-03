@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>知识图谱生成器</title>
+    <title>TermsAI - 关系图谱生成器</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script type="text/javascript" src="{{ url_for('static', filename='js/vis-network.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tinycolor.min.js') }}"></script>
@@ -14,7 +14,7 @@
         <div class="header">
             <div style="display: flex; align-items: flex-end;">
                 <h1>TermsAI</h1>
-                <p class="subtitle">输入主题，AI帮你梳理知识图谱</p>
+                <p class="subtitle">输入主题，AI帮你梳理关系图谱</p>
             </div>
         </div>
         <div class="main-content">
@@ -37,7 +37,7 @@
                 <div class="feedback-buttons">
                     <button id="add-concept-btn" class="feedback-btn">
                         <i class="fas fa-plus-circle"></i>
-                        <span class="button-text">新增概念</span>
+                        <span class="button-text">新增节点</span>
                     </button>
                     <button id="dislike-btn" class="feedback-btn">
                         <i class="fas fa-redo"></i>
@@ -60,11 +60,11 @@
                 <div class="input-section">
                     <div class="input-row">
                         <div class="input-group">
-                            <label>学习主题：</label>
-                            <input type="text" id="topic-input" placeholder="输入主题..." onkeydown="if(event.key === 'Enter'){ document.getElementById('generate-btn').click(); }">
+                            <label>分析主体：</label>
+                            <input type="text" id="topic-input" placeholder="输入主体..." onkeydown="if(event.key === 'Enter'){ document.getElementById('generate-btn').click(); }">
                         </div>
                         <div class="input-group number-input">
-                            <label>概念数量：</label>
+                            <label>节点数量：</label>
                             <div class="number-controls">
                                 <button class="number-btn" id="decrease">−</button>
                                 <input type="number" id="concept-count" value="10" min="5" max="20" readonly>
@@ -80,13 +80,13 @@
                 </div>
             </div>
         </div>
-        <div class="ai-disclaimer">内容由AI生成，仅供参考</div>
+        <div class="ai-disclaimer">AI生成，仅供参考。如有反馈欢迎<a id="feedback-link" href="#">联系作者</a>。</div>
     </div>
     <div id="modal-overlay" class="modal-overlay" style="display: none;">
         <div class="modal-content">
-            <h3 class="modal-title">新增概念到当前知识图谱</h3>
+            <h3 class="modal-title">新增节点到当前知识图谱</h3>
             <div class="modal-input-group">
-                <input type="text" id="new-concept-input" placeholder="请输入新概念...">
+                <input type="text" id="new-concept-input" placeholder="请输入新概念/人物...">
                 <button id="confirm-add-concept" class="modal-add-btn">新增</button>
                 <button id="cancel-add-concept" class="modal-cancel-btn">取消</button>
             </div>
