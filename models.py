@@ -19,6 +19,7 @@ class KnowledgeGraph(Base):
     likes = Column(Integer, default=0)
     dislikes = Column(Integer, default=0)
     score = Column(Float, default=0)  # likes - dislikes
+    is_person = Column(Integer, default=0)  # 添加是否为人物的标记，0表示否，1表示是
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     
     def to_dict(self) -> Dict[str, Any]:
@@ -31,6 +32,7 @@ class KnowledgeGraph(Base):
             'likes': self.likes,
             'dislikes': self.dislikes,
             'score': self.score,
+            'is_person': self.is_person,  # 在字典中包含是否为人物的标记
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'is_like': bool(self.likes > self.dislikes) if hasattr(self, 'is_like') else None
         }

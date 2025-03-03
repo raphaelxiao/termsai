@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify, Response, make_response, stream_with_context
-from utils import generate_concepts, generate_relationships, create_network_data, parse_json_response, generate_new_concept_detail
+from utils import generate_concepts, generate_relationships, create_network_data, parse_json_response, generate_new_concept_detail, pre_judge_person
 from database import DatabaseManager
-from models import Session, KnowledgeGraph  # 新增获取图谱所需
+from models import Session, KnowledgeGraph
 import json
 import uuid
 import re
@@ -39,19 +39,21 @@ def generate_stream():
     count = request.json.get('count', 10)
     
     if not topic:
-        return jsonify({'error': '请输入主题'}), 400
+        return jsonify({'error': '请输入主体'}), 400
     if not 5 <= count <= 20:
-        return jsonify({'error': '概念数量必须在5到20之间'}), 400
+        return jsonify({'error': '节点数量必须在5到20之间'}), 400
     
     def generate():
         try:
             # 尝试从数据库获取缓存图谱
             cached_graph = DatabaseManager.get_best_graph(topic, count)
             if cached_graph:
+                # 检查缓存图谱是否包含is_person字段
+                is_person = cached_graph.get('is_person', False)
                 yield "data: " + json.dumps({
                     'status': 'complete',
                     'progress': 100,
-                    'message': '正在获取知识图谱...',
+                    'message': '正在获取关系图谱...',
                     'data': {
                         'graph_id': cached_graph['id'],
                         'concepts': cached_graph['concepts'],
@@ -59,11 +61,16 @@ def generate_stream():
                         'network_data': create_network_data(
                             cached_graph['concepts'],
                             cached_graph['relationships']
-                        )
+                        ),
+                        'is_person': is_person  # 返回is_person标记
                     }
                 }) + '\n\n'
                 return
 
+            # 预判主题是否为人物
+            is_person = pre_judge_person(topic)
+            logging.info(f"主题 '{topic}' 是否为人物: {is_person}")
+            
             # 第一阶段：流式生成概念
             yield "data: " + json.dumps({
                 'status': 'generating_concepts',
@@ -74,14 +81,14 @@ def generate_stream():
             accumulated_text = ""
             generated_concepts = []
             key_pattern = re.compile(r'"([^"]+)"\s*:')
-            last_update_time = 0  # 添加时间追踪
-            dot_phase = 0  # 初始化省略号计数器
+            last_update_time = 0
+            dot_phase = 0
             
             # 调用生成概念函数，启用流式输出
-            for chunk in generate_concepts(topic, count, stream=True):
+            for chunk in generate_concepts(topic, count, is_person, True):
                 accumulated_text += chunk
                 current_time = time.time()
-                # 每0.3秒更新一次进度（包括省略号动画）
+                # 每0.3秒更新一次进度
                 if current_time - last_update_time >= 0.3:
                     keys = key_pattern.findall(accumulated_text)
                     for key in keys:
@@ -89,10 +96,9 @@ def generate_stream():
                             generated_concepts.append("✅" + key)
                     progress_value = 30 + (len(generated_concepts) / count) * 40
                     progress_value = min(progress_value, 70)
-                    # 根据计数器计算省略号数量（循环显示1到3个点）
                     dots = '.' * ((dot_phase % 3) + 1)
                     dot_phase += 1
-                    display_message = "正在生成概念:\n" + "\n".join(generated_concepts) + dots
+                    display_message = "正在生成节点:\n" + "\n".join(generated_concepts) + dots
                     yield "data: " + json.dumps({
                         'status': 'generating_concepts_partial',
                         'progress': progress_value,
@@ -104,20 +110,21 @@ def generate_stream():
             yield "data: " + json.dumps({
                 'status': 'generating_relationships',
                 'progress': 70,
-                'message': '正在分析概念关系...\n概念太多的话可能需时几分钟'
+                'message': '正在分析节点关系...\n节点太多的话可能需时几分钟'
             }) + '\n\n'
             
-            # 解析完整的概念 JSON 文本（假设流式返回内容构成完整 JSON）
-            concepts = parse_json_response(accumulated_text, error_context=f"处理主题 '{topic}' 的概念生成结果时")
-            relationships = generate_relationships(concepts)
+            # 解析完整的概念 JSON 文本
+            concepts = parse_json_response(accumulated_text, error_context=f"处理主体 '{topic}' 的节点生成结果时")
+            relationships = generate_relationships(concepts, is_person)
             network_data = create_network_data(concepts, relationships)
             
-            # 保存生成的图谱
+            # 保存生成的图谱和is_person标记
             graph_id = DatabaseManager.save_knowledge_graph(
                 topic=topic,
                 concept_count=count,
                 concepts=concepts,
-                relationships=relationships
+                relationships=relationships,
+                is_person=is_person  # 保存is_person标记到数据库
             )
     
             yield "data: " + json.dumps({
@@ -128,11 +135,13 @@ def generate_stream():
                     'graph_id': graph_id,
                     'concepts': concepts,
                     'relationships': relationships,
-                    'network_data': network_data
+                    'network_data': network_data,
+                    'is_person': is_person  # 返回is_person标记给前端
                 }
             }) + "\n\n"
     
         except Exception as e:
+            logging.error(f"生成流程出错: {str(e)}", exc_info=True)
             yield "data: " + json.dumps({
                 'status': 'error',
                 'message': str(e)
@@ -162,7 +171,7 @@ def feedback():
         if not topic:
             return jsonify({'error': '缺少主题参数'}), 400
         if not count or not isinstance(count, int) or not 5 <= count <= 20:
-            return jsonify({'error': '概念数量无效'}), 400
+            return jsonify({'error': '节点数量无效'}), 400
         
         result = DatabaseManager.update_feedback(graph_id, is_like)
         
@@ -178,11 +187,11 @@ def feedback():
             if not (is_new_concept_flag and force_regenerate):
                 DatabaseManager.record_user_view(user_id, graph_id)
                 viewed_count = DatabaseManager.get_viewed_count(topic, count, user_id)
-                print(f"Viewed count: {viewed_count}")  # 添加调试日志
+                logging.debug(f"Viewed count: {viewed_count}")
                 
                 if viewed_count < 3:
                     top_graphs = DatabaseManager.get_top_n_graphs(topic, count, user_id)
-                    print(f"Found top graphs: {len(top_graphs) if top_graphs else 0}")  # 添加调试日志
+                    logging.debug(f"Found top graphs: {len(top_graphs) if top_graphs else 0}")
                     if top_graphs:
                         next_graph = top_graphs[0]
                         network_data = create_network_data(
@@ -197,7 +206,8 @@ def feedback():
                                 'graph_id': next_graph['id'],
                                 'concepts': next_graph['concepts'],
                                 'relationships': next_graph['relationships'],
-                                'network_data': network_data
+                                'network_data': network_data,
+                                'is_person': next_graph.get('is_person', False)  # 获取is_person标记
                             }
                         })
             # 进入生成分支
@@ -225,45 +235,51 @@ def feedback():
                                 return
                             topic = graph.topic
                             existing_concepts = graph.concepts
+                            # 获取is_person值，如果不存在则预判
+                            is_person = getattr(graph, 'is_person', None)
+                            if is_person is None:
+                                is_person = pre_judge_person(topic)
+                                logging.info(f"预判主题 '{topic}' 是否为人物: {is_person}")
                         
                         yield "data: " + json.dumps({
                             'status': 'generating_new_concept',
                             'progress': 30,
-                            'message': '正在生成新概念详细描述'
+                            'message': '正在生成新节点详细描述'
                         }) + '\n\n'
                         
                         new_concept_input = request.json.get('added_concept_data', {}).get('new_concept')
                         if not new_concept_input:
                             yield "data: " + json.dumps({
                                 'status': 'error',
-                                'message': '缺少新增概念数据'
+                                'message': '缺少新增节点数据'
                             }) + '\n\n'
                             return
                         
-                        new_concept_detail = generate_new_concept_detail(new_concept_input)
+                        new_concept_detail = generate_new_concept_detail(new_concept_input, is_person)
                         updated_concepts = existing_concepts.copy()
                         updated_concepts.update(new_concept_detail)
                         
                         yield "data: " + json.dumps({
                             'status': 'merging_concepts',
                             'progress': 50,
-                            'message': '正在合并概念'
+                            'message': '正在合并节点'
                         }) + '\n\n'
                         
                         yield "data: " + json.dumps({
                             'status': 'generating_relationships',
                             'progress': 70,
-                            'message': '正在分析概念关系...\n概念太多的话可能需时几分钟'
+                            'message': '正在分析节点关系...\n节点太多的话可能需时几分钟'
                         }) + '\n\n'
                         
-                        updated_relationships = generate_relationships(updated_concepts)
+                        updated_relationships = generate_relationships(updated_concepts, is_person)
                         network_data = create_network_data(updated_concepts, updated_relationships)
                         
                         new_graph_id = DatabaseManager.save_knowledge_graph(
                             topic=topic,
                             concept_count=len(updated_concepts),
                             concepts=updated_concepts,
-                            relationships=updated_relationships
+                            relationships=updated_relationships,
+                            is_person=is_person  # 保存is_person标记
                         )
                         
                         DatabaseManager.record_user_view(user_id, new_graph_id)
@@ -271,16 +287,18 @@ def feedback():
                         yield "data: " + json.dumps({
                             'status': 'complete',
                             'progress': 100,
-                            'message': '新增概念成功，图谱已更新',
+                            'message': '新增节点成功，图谱已更新',
                             'data': {
                                 'graph_id': new_graph_id,
                                 'concepts': updated_concepts,
                                 'relationships': updated_relationships,
-                                'network_data': network_data
+                                'network_data': network_data,
+                                'is_person': is_person  # 返回is_person标记
                             }
                         }) + "\n\n"
                     
                     except Exception as e:
+                        logging.error(f"生成新概念出错: {str(e)}", exc_info=True)
                         yield "data: " + json.dumps({
                             'status': 'error',
                             'message': str(e)
@@ -290,6 +308,10 @@ def feedback():
             else:
                 def generate():
                     try:
+                        # 预判主题是否为人物
+                        is_person = pre_judge_person(topic)
+                        logging.info(f"预判主题 '{topic}' 是否为人物: {is_person}")
+                        
                         yield "data: " + json.dumps({
                             'status': 'generating_concepts',
                             'progress': 20,
@@ -302,7 +324,7 @@ def feedback():
                         last_update_time = 0
                         dot_phase = 0
                         
-                        for chunk in generate_concepts(topic, count, stream=True):
+                        for chunk in generate_concepts(topic, count, is_person, True):
                             accumulated_text += chunk
                             current_time = time.time()
                             if current_time - last_update_time >= 0.3:
@@ -314,7 +336,7 @@ def feedback():
                                 progress_value = min(progress_value, 70)
                                 dots = '.' * ((dot_phase % 3) + 1)
                                 dot_phase += 1
-                                display_message = "正在生成概念:\n" + "\n".join(generated_concepts) + dots
+                                display_message = "正在生成节点:\n" + "\n".join(generated_concepts) + dots
                                 yield "data: " + json.dumps({
                                     'status': 'generating_concepts_partial',
                                     'progress': progress_value,
@@ -324,23 +346,24 @@ def feedback():
                         
                         concepts = parse_json_response(
                             text=accumulated_text,
-                            error_context=f"处理主题 '{topic}' 的概念生成结果时"
+                            error_context=f"处理主体 '{topic}' 的节点生成结果时"
                         )
                         
                         yield "data: " + json.dumps({
                             'status': 'generating_relationships',
                             'progress': 70,
-                            'message': '正在分析概念关系...\n概念太多的话可能需时几分钟'
+                            'message': '正在分析节点关系...\n节点太多的话可能需时几分钟'
                         }) + '\n\n'
                         
-                        relationships = generate_relationships(concepts)
+                        relationships = generate_relationships(concepts, is_person)
                         network_data = create_network_data(concepts, relationships)
                         
                         new_graph_id = DatabaseManager.save_knowledge_graph(
                             topic=topic,
                             concept_count=count,
                             concepts=concepts,
-                            relationships=relationships
+                            relationships=relationships,
+                            is_person=is_person  # 保存is_person标记
                         )
                         
                         DatabaseManager.record_user_view(user_id, new_graph_id)
@@ -353,11 +376,13 @@ def feedback():
                                 'graph_id': new_graph_id,
                                 'concepts': concepts,
                                 'relationships': relationships,
-                                'network_data': network_data
+                                'network_data': network_data,
+                                'is_person': is_person  # 返回is_person标记
                             }
                         }) + "\n\n"
                     
                     except Exception as e:
+                        logging.error(f"重新生成图谱出错: {str(e)}", exc_info=True)
                         yield "data: " + json.dumps({
                             'status': 'error',
                             'message': str(e)
@@ -375,23 +400,7 @@ def feedback():
             }) + '\n\n'
         return Response(generate_error(), mimetype='text/event-stream')
 
-@app.route('/default_graph')
-def get_default_graph():
-    try:
-        graph = DatabaseManager.get_default_graph()
-        if graph:
-            # 需要使用 create_network_data 函数来正确创建网络数据
-            network_data = create_network_data(graph["concepts"], graph["relationships"])
-            return jsonify({
-                "data": {
-                    "graph_id": graph["id"],
-                    "network_data": network_data  # 不是直接使用 concepts 和 relationships
-                }
-            })
-        return jsonify({"error": "没有找到默认图谱"})
-    except Exception as e:
-        print(f"加载默认图谱时出错: {str(e)}")  # 添加错误日志
-        return jsonify({"error": str(e)})
+
 
 @app.route('/add_concept', methods=['POST'])
 def add_concept():
@@ -414,6 +423,13 @@ def add_concept():
                         return
                     topic = graph.topic
                     existing_concepts = graph.concepts
+                    
+                    # 使用数据库中保存的is_person值
+                    is_person = getattr(graph, 'is_person', None)
+                    # 如果数据库中没有保存is_person（老数据），则重新判断
+                    if is_person is None:
+                        is_person = pre_judge_person(topic)
+                        logging.info(f"预判主题 '{topic}' 是否为人物: {is_person}")
 
                 # 第一阶段：初始化
                 yield "data: " + json.dumps({
@@ -426,9 +442,9 @@ def add_concept():
                 yield "data: " + json.dumps({
                     'status': 'generating_new_concept',
                     'progress': 30,
-                    'message': '正在生成新概念详细描述'
+                    'message': '正在生成新节点详细描述'
                 }) + '\n\n'
-                new_concept_detail = generate_new_concept_detail(new_concept_input)
+                new_concept_detail = generate_new_concept_detail(new_concept_input, is_person)
     
                 # 第三阶段：合并概念
                 updated_concepts = existing_concepts.copy()
@@ -436,16 +452,16 @@ def add_concept():
                 yield "data: " + json.dumps({
                     'status': 'merging_concepts',
                     'progress': 50,
-                    'message': '正在合并概念'
+                    'message': '正在合并节点'
                 }) + '\n\n'
     
                 # 第四阶段：生成关联关系
                 yield "data: " + json.dumps({
                     'status': 'generating_relationships',
                     'progress': 70,
-                    'message': '正在分析概念关系...\n概念太多的话可能需时几分钟'
+                    'message': '正在分析节点关系...\n节点太多的话可能需时几分钟'
                 }) + '\n\n'
-                updated_relationships = generate_relationships(updated_concepts)
+                updated_relationships = generate_relationships(updated_concepts, is_person)
     
                 # 第五阶段：生成网络数据
                 network_data = create_network_data(updated_concepts, updated_relationships)
@@ -460,22 +476,25 @@ def add_concept():
                     topic=topic,
                     concept_count=len(updated_concepts),
                     concepts=updated_concepts,
-                    relationships=updated_relationships
+                    relationships=updated_relationships,
+                    is_person=is_person  # 保存is_person到新的图谱
                 )
     
                 yield "data: " + json.dumps({
                     'status': 'complete',
                     'progress': 100,
-                    'message': '新增概念成功，图谱已更新',
+                    'message': '新增节点成功，图谱已更新',
                     'data': {
                         'graph_id': new_graph_id,
                         'concepts': updated_concepts,
                         'relationships': updated_relationships,
-                        'network_data': network_data
+                        'network_data': network_data,
+                        'is_person': is_person  # 返回is_person标记
                     }
                 }) + "\n\n"
     
             except Exception as e:
+                logging.error(f"添加概念时出错: {str(e)}", exc_info=True)
                 yield "data: " + json.dumps({
                     'status': 'error',
                     'message': str(e)
@@ -483,6 +502,7 @@ def add_concept():
     
         return Response(stream_with_context(generate()), mimetype='text/event-stream')
     except Exception as e:
+        logging.error(f"处理添加概念请求出错: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @app.route('/search_graph', methods=['POST'])
@@ -501,6 +521,8 @@ def search_graph():
             if not graph:
                 return jsonify({'error': f'未找到图谱，图谱编号: {graph_id}'}), 404
             network_data = create_network_data(graph.concepts, graph.relationships)
+            # 获取is_person值，如果不存在则默认为False
+            is_person = getattr(graph, 'is_person', False)
             return jsonify({
                 "data": {
                     "graph_id": graph.id,
@@ -508,12 +530,34 @@ def search_graph():
                     "concept_count": graph.concept_count,
                     "concepts": graph.concepts,
                     "relationships": graph.relationships,
-                    "network_data": network_data
+                    "network_data": network_data,
+                    "is_person": is_person  # 返回is_person标记
                 }
             })
     except Exception as e:
-        print(f"搜索图谱时出错: {str(e)}")
+        logging.error(f"搜索图谱时出错: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+@app.route('/default_graph')
+def get_default_graph():
+    try:
+        graph = DatabaseManager.get_default_graph()
+        if graph:
+            # 需要使用 create_network_data 函数来正确创建网络数据
+            network_data = create_network_data(graph["concepts"], graph["relationships"])
+            # 获取is_person值，如果不存在则默认为False
+            is_person = graph.get('is_person', False)
+            return jsonify({
+                "data": {
+                    "graph_id": graph["id"],
+                    "network_data": network_data,
+                    "is_person": is_person  # 返回is_person标记
+                }
+            })
+        return jsonify({"error": "没有找到默认图谱"})
+    except Exception as e:
+        logging.error(f"加载默认图谱时出错: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)})
 
 @app.route('/check_filter', methods=['POST'])
 def check_filter():
@@ -530,7 +574,7 @@ def check_filter():
         is_filtered = any(word in topic for word in filter_words)
         return jsonify({'filtered': is_filtered})
     except Exception as e:
-        print(f"Error checking filters: {e}")
+        logging.error(f"检查过滤词时出错: {str(e)}", exc_info=True)
         return jsonify({'filtered': False})
 
 @app.route('/get_graph', methods=['GET'])
@@ -541,7 +585,7 @@ def get_graph():
         if not graph_id:
             return jsonify({"error": "缺少 graph_id 参数"}), 400
 
-        # 查询数据库获取对应的图谱对象，这里假设使用 SQLAlchemy，并且 KnowledgeGraph 模型中包含 topic, concepts, relationships 等字段
+        # 查询数据库获取对应的图谱对象
         with Session() as session:
             graph = session.query(KnowledgeGraph).get(graph_id)
             if not graph:
@@ -556,19 +600,24 @@ def get_graph():
             except Exception as e:
                 return jsonify({"error": f"解析图谱 concepts 错误：{str(e)}"}), 500
 
-            # 生成网络数据，注意这里需要调用已有的函数 create_network_data
+            # 生成网络数据
             network_data = create_network_data(graph.concepts, graph.relationships)
+            
+            # 获取is_person值，如果不存在则默认为False
+            is_person = getattr(graph, 'is_person', False)
 
             result = {
                 "data": {
                     "graph_id": graph.id,
                     "topic": graph.topic,
                     "conceptCount": len(concepts_dict),
-                    "network_data": network_data
+                    "network_data": network_data,
+                    "is_person": is_person  # 返回is_person标记
                 }
             }
             return jsonify(result)
     except Exception as e:
+        logging.error(f"获取图谱时出错: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':

@@ -5,13 +5,14 @@ from datetime import datetime, timezone
 
 class DatabaseManager:
     @staticmethod
-    def save_knowledge_graph(topic: str, concept_count: int, concepts: dict, relationships: list) -> int:
+    def save_knowledge_graph(topic: str, concept_count: int, concepts: dict, relationships: list, is_person: int = 0) -> int:
         with Session() as session:
             graph = KnowledgeGraph(
                 topic=topic.lower(),
                 concept_count=concept_count,
                 concepts=concepts,
-                relationships=relationships
+                relationships=relationships,
+                is_person=is_person  # 保存是否为人物的标记
             )
             session.add(graph)
             session.commit()

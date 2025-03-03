@@ -1,5 +1,5 @@
 from configs import client, model, backup_models
-from configs.prompt_configs import CONCEPT_PROMPT_TEMPLATE, RELATIONSHIP_PROMPT_TEMPLATE, NEW_CONCEPT_PROMPT_TEMPLATE
+from configs.prompt_configs import CONCEPT_PROMPT_TEMPLATE, RELATIONSHIP_PROMPT_TEMPLATE, NEW_CONCEPT_PROMPT_TEMPLATE, RELATIONSHIP_ORG_PROMPT_TEMPLATE, PREJUDGE_PROMPT_TEMPLATE, ORG_PROMPT_TEMPLATE, NEW_ORG_PROMPT_TEMPLATE
 import json
 import time
 from functools import wraps
@@ -180,22 +180,52 @@ def check_content_filter(text: str) -> bool:
         print(f"Error checking content filters: {e}")
         return False
 
-def generate_concepts(topic: str, count: int = 10, stream: bool = False):
+def pre_judge_person(topic: str) -> bool:
+    """
+    预判主题是否为人物
+    :param topic: 主题
+    :return: 如果主题为人物返回True，否则返回False
+    """
+    messages = [{
+        "role": "user",
+        "content": PREJUDGE_PROMPT_TEMPLATE.format(topic=topic)
+    }]
+    response_text = call_llm_api(
+        messages,
+        context="预判主题是否为人物"
+    )
+    response_data = parse_json_response(
+        response_text,
+        error_context="处理预判主题是否为人物结果时"
+    )   
+    return response_data["result"] == "1"  # 确保返回布尔值
+
+def generate_concepts(topic: str, count: int = 10, is_person: bool = False, stream: bool = False):
     """
     生成概念，可以选择流式输出
     :param topic: 主题
     :param count: 概念数量
-    :param stream: 是否流式输出
+    :param is_person: 是否为人物类型，默认为False
+    :param stream: 是否流式输出，默认为False
     :return: 若 stream 为 False，则返回概念字典；否则返回生成器，逐块yield生成的文本
     """
-    messages = [{
-        "role": "user",
-        "content": CONCEPT_PROMPT_TEMPLATE.format(topic=topic, count=count)
-    }]
+    # 预判主题是否为人物 - 移除这里的判断，使用传入的is_person参数
+    # is_person = pre_judge_person(topic)
+    
+    if is_person:
+        messages = [{
+            "role": "user",
+            "content": ORG_PROMPT_TEMPLATE.format(topic=topic, count=count)
+        }]
+    else:
+        messages = [{
+            "role": "user",
+            "content": CONCEPT_PROMPT_TEMPLATE.format(topic=topic, count=count)
+        }]
     
     if stream:
         accumulated_text = ""  # 用于累积文本进行过滤检查
-        stream_gen = call_llm_api(messages, f"生成主题 '{topic}' 的概念", stream=True)
+        stream_gen = call_llm_api(messages, f"生成主体 '{topic}' 相关的节点", stream=True)
         for chunk in stream_gen:
             accumulated_text += chunk
             # 检查每个新chunk是否包含过滤词
@@ -206,7 +236,7 @@ def generate_concepts(topic: str, count: int = 10, stream: bool = False):
     else:
         # 非流式模式下，分块接收并检查内容
         accumulated_text = ""
-        stream_gen = call_llm_api(messages, f"生成主题 '{topic}' 的概念", stream=True)
+        stream_gen = call_llm_api(messages, f"生成主体 '{topic}' 相关的节点", stream=True)
         for chunk in stream_gen:
             # 检查每个新chunk是否包含过滤词
             if check_content_filter(chunk):
@@ -219,20 +249,29 @@ def generate_concepts(topic: str, count: int = 10, stream: bool = False):
         # 只有在确认没有过滤词后才解析JSON
         return parse_json_response(
             text=accumulated_text,
-            error_context=f"处理主题 '{topic}' 的概念生成结果时"
+            error_context=f"处理主体 '{topic}' 的概念生成结果时"
         )
 
-def generate_relationships(concepts: dict) -> list:
+def generate_relationships(concepts: dict, is_person: bool = False) -> list:
     """
     生成关系
     :param concepts: 概念字典
+    :param is_person: 是否为人物类型，默认为False
     :return: 关系列表
     """
     try:
-        messages = [{
-            "role": "user",
-            "content": RELATIONSHIP_PROMPT_TEMPLATE.format(
-                concepts_json=json.dumps(concepts, ensure_ascii=False)
+        if is_person:
+            messages = [{
+                "role": "user",
+                "content": RELATIONSHIP_ORG_PROMPT_TEMPLATE.format(
+                    concepts_json=json.dumps(concepts, ensure_ascii=False)
+                )
+            }]
+        else:
+            messages = [{
+                "role": "user",
+                "content": RELATIONSHIP_PROMPT_TEMPLATE.format(
+                    concepts_json=json.dumps(concepts, ensure_ascii=False)
             )
         }]
         
@@ -408,18 +447,29 @@ def create_network_data(concepts: dict, relationships: list) -> dict:
     }
 
 @retry_on_error(max_retries=3)
-def generate_new_concept_detail(new_concept_input: str) -> dict:
+def generate_new_concept_detail(new_concept_input: str, is_person: bool = False) -> dict:
     """
     根据用户输入的新概念生成详细描述
     要求格式为："概念名称": "概念介绍"
+    :param new_concept_input: 用户输入的新概念
+    :param is_person: 是否为人物类型
     """
     try:
-        messages = [{
-            "role": "user",
-            "content": NEW_CONCEPT_PROMPT_TEMPLATE.format(
-                new_concept_input=new_concept_input
-            )
-        }]
+        if is_person:
+            messages = [{
+                "role": "user",
+                "content": NEW_ORG_PROMPT_TEMPLATE.format(
+                    new_concept_input=new_concept_input
+                )
+            }]
+        else:
+            messages = [{
+                "role": "user",
+                "content": NEW_CONCEPT_PROMPT_TEMPLATE.format(
+                    new_concept_input=new_concept_input
+                )
+            }]
+        
         response_text = call_llm_api(
             messages,
             context=f"生成新概念 '{new_concept_input}' 的描述",
