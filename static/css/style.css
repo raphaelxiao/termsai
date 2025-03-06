@@ -31,7 +31,6 @@ body {
     margin: 0;
     padding: 0;
     font-family: 'NotoSansHans-Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-    height: 100vh;
     overflow-y: auto; /* 改为 auto 允许垂直滚动 */
     overflow-x: hidden; /* 禁用水平滚动 */
     background-color: #fff;
@@ -43,10 +42,9 @@ body {
 .container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 20px 20px; /* 添加底部padding */
 }
 
 .input-section {
@@ -185,11 +183,11 @@ button:disabled {
 
 #info-box {
     flex: 1;
+    min-height: 150px !important; /* 强制最小高度 */
     padding: 15px;
     background-color: var(--background-light);
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    min-height: 150px;
     overflow-y: auto;
     font-size: 16px;
     line-height: 1.6;
@@ -230,13 +228,15 @@ button:disabled {
     border-radius: 8px;
 }
 
-/* 添加AI提示文本的样式 */
+/* 修改 ai-disclaimer，移除固定高度 */
 .ai-disclaimer {
     width: 100%;
-    height: 1.6em;
+    padding: 5px 0;  /* 减小上下padding */
+    margin: 5px 0;   /* 添加小的外边距 */
     font-size: 12px;
     color: var(--subtitle-color);
     text-align: center;
+    line-height: 1.2; /* 减小行高 */
 }
 
 .input-row {
@@ -437,15 +437,16 @@ button:disabled {
     #network-container {
         order: 2;
         width: 100%;
-        min-height: 400px;
+        flex: 2;
+        min-height: 300px;
     }
     
     #info-box {
         order: 3;
         width: 100%;
         box-sizing: border-box;
-        flex: 0 0 100px; /* 固定高度，约4行文字 */
-        max-height: 100px;
+        flex: 0 0 150px; /* 固定高度 */
+        min-height: 150px !important;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
     }
@@ -477,13 +478,56 @@ button:disabled {
     }
 }
 
-@media (max-height: 600px) {
+@media (max-height: 680px) {
+    .container {
+        padding: 15px;
+        height: auto;
+        min-height: 97vh;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    .main-content {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        gap: 15px;
+        flex: 0 1 auto;
+        min-height: 0;
+        overflow: visible;
+    }
+    
+    /* 将 .right-panel 的子元素"抬平"到 .main-content 里 */
+    .right-panel {
+        display: contents;
+    }
+    
+    /* 重新排序 .main-content 下的三个部分 */
+    .input-section {
+        order: 1;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px;
+        flex: 0 0 auto;
+    }
+    
     #network-container {
-        flex: 2.5;
+        order: 2;
+        width: 100%;
+        height: 300px;
+        min-height: 300px;
+        flex: 0 0 auto;
     }
     
     #info-box {
-        flex: 0 0 100px;
+        order: 3;
+        width: 100%;
+        box-sizing: border-box;
+        flex: 0 0 auto;
+        min-height: 150px !important;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
 }
 
@@ -999,3 +1043,4 @@ input, textarea, #network, button {
 .ai-disclaimer a:hover {
     text-decoration: underline;
 } 
+
