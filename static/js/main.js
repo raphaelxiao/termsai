@@ -112,26 +112,35 @@ document.addEventListener('DOMContentLoaded', function() {
             "正在生成网络数据"
         ];
         
+        // 修改这部分逻辑，避免消息闪烁
         if (loadingMessages.includes(message)) {
-            // 如果已有定时器，且当前加载消息与之前的不同，则重置定时器
-            if (loadingInterval && currentLoadingMessage !== message) {
-                clearInterval(loadingInterval);
-                loadingInterval = null;
-            }
-            // 如果没有定时器，则启动一个
-            if (!loadingInterval) {
+            // 如果是加载消息，但与当前显示的消息不同，才重置定时器
+            if (currentLoadingMessage !== message) {
+                // 清除现有定时器
+                if (loadingInterval) {
+                    clearInterval(loadingInterval);
+                }
+                
+                // 设置新的当前消息和初始点数
                 currentLoadingMessage = message;
                 dotCount = 0;
+                
+                // 立即显示初始消息（无点）
+                infoBox.textContent = message;
+                
+                // 创建新的定时器
                 loadingInterval = setInterval(function() {
                     dotCount = (dotCount + 1) % 4;
-                    const updatedMessage = message + '.'.repeat(dotCount);
+                    const dots = '.'.repeat(dotCount);
                     // 更新时也判断一下停止标记
                     if (!window.stopGeneration) {
-                        infoBox.textContent = updatedMessage;
+                        // 只更新点数部分，避免整个消息闪烁
+                        infoBox.textContent = message + dots;
                         infoBox.scrollTop = infoBox.scrollHeight;
                     }
                 }, 300); // 每0.3秒更新一次
             }
+            // 如果消息相同，不做任何处理，让现有定时器继续工作
         } else {
             // 对于非加载状态信息，先清除定时器（如果已存在）
             if (loadingInterval) {
