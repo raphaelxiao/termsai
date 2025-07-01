@@ -1487,90 +1487,87 @@ document.getElementById('download-btn').addEventListener('click', async function
         const graphId = currentGraphId;
         // 使用较大尺寸生成二维码以便后续缩小
         const genQrSize = 200;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${genQrSize}x${genQrSize}&data=${window.location.origin}/?graph_id=${graphId}`;
-        const qrImg = new Image();
-        qrImg.crossOrigin = "Anonymous";
-        qrImg.onload = function(){
-            // 在生成二维码后添加外描边处理：
-            const qrPadding = Math.round(genQrSize * 0.1); // 10% 的边距
-            const qrCanvasSize = genQrSize + 2 * qrPadding;
-            const qrCanvas = document.createElement('canvas');
-            qrCanvas.width = qrCanvasSize;
-            qrCanvas.height = qrCanvasSize;
-            const qrCtx = qrCanvas.getContext('2d');
-            
-            // 填充背景为白色
-            qrCtx.fillStyle = '#ffffff';
-            qrCtx.fillRect(0, 0, qrCanvasSize, qrCanvasSize);
-            // 绘制二维码图像在中间
-            qrCtx.drawImage(qrImg, qrPadding, qrPadding, genQrSize, genQrSize);
-            // 绘制外描边，颜色为 #00a99d
-            const borderLineWidth = Math.max(2, Math.round(qrCanvasSize * 0.05));
-            qrCtx.lineWidth = borderLineWidth;
-            qrCtx.strokeStyle = '#00a99d';
-            qrCtx.strokeRect(borderLineWidth/2, borderLineWidth/2, qrCanvasSize - borderLineWidth, qrCanvasSize - borderLineWidth);
-            
-            // 将包含描边的二维码缩小到最终二维码尺寸
-            const scaledQrCanvas = document.createElement('canvas');
-            scaledQrCanvas.width = finalQrSize;
-            scaledQrCanvas.height = finalQrSize;
-            const scaledQrCtx = scaledQrCanvas.getContext('2d');
-            scaledQrCtx.drawImage(qrCanvas, 0, 0, qrCanvas.width, qrCanvas.height, 0, 0, finalQrSize, finalQrSize);
-            
-            // 将二维码放置在下方边框中，靠右侧
-            const qrX = finalWidth - borderRight - finalQrSize;
-            const qrY = borderTop + cropH + (borderBottom - finalQrSize) / 2;
-            finalCtx.drawImage(scaledQrCanvas, qrX, qrY, finalQrSize, finalQrSize);
-            
-            // 在二维码左侧添加说明文字
-            const qrTextFontSize = Math.round(textFontSize / 3); // TermsAI 字号的 1/3
-            finalCtx.font = qrTextFontSize + "px 'Noto Sans S Chinese'"; // 不加粗
-            finalCtx.fillStyle = '#ffffff';
-            finalCtx.textAlign = 'right'; // 右对齐
-            finalCtx.textBaseline = 'middle';
-            
-            // 计算文字位置：二维码左侧 1% 裁剪后图片宽度的距离
-            const qrTextX = qrX - Math.round(0.01 * cropW);
-            const qrTextY = qrY + finalQrSize / 2; // 垂直居中对齐二维码
-            
-            // 绘制两行文字
-            const lines = ['扫码查看', '说人话的知识图谱'];
-            const lineHeight = qrTextFontSize * 1.2; // 行高为字号的 1.2 倍
-            lines.forEach((line, index) => {
-                finalCtx.fillText(line, qrTextX, qrTextY + (index - 0.5) * lineHeight);
-            });
-            
-            // 替换原有的下载代码，改为显示预览
-            const previewOverlay = document.createElement('div');
-            previewOverlay.className = 'preview-overlay';
-            
-            const previewImage = document.createElement('img');
-            previewImage.src = finalCanvas.toDataURL('image/png');
-            previewImage.className = 'preview-image';
-            
-            previewOverlay.appendChild(previewImage);
-            document.body.appendChild(previewOverlay);
-            
-            // 点击非图片区域关闭预览
-            previewOverlay.addEventListener('click', function(e) {
-                if (e.target === previewOverlay) {
-                    document.body.removeChild(previewOverlay);
-                }
-            });
-            
-            // 恢复用户原来的视图和节点原始字体设置
-            network.moveTo({
-                position: originalPosition,
-                scale: originalScale,
-                animation: false
-            });
-            const restoreNodes = originalNodes.map(node => {
-                return { id: node.id, font: originalFontMap[node.id] || undefined };
-            });
-            network.body.data.nodes.update(restoreNodes);
-            network.redraw();
-        };
-        qrImg.src = qrUrl;
+        // 使用 QRious 在浏览器端本地生成二维码，避免外部依赖
+        const qrValue = `${window.location.origin}/?graph_id=${graphId}`;
+        const qrCanvasOriginal = document.createElement('canvas');
+        new QRious({
+            element: qrCanvasOriginal,
+            value: qrValue,
+            size: genQrSize,
+            level: 'H' // 最高纠错级别
+        });
+
+        // 在二维码外包一层白底加描边，与之前效果保持一致
+        const qrPadding = Math.round(genQrSize * 0.1); // 10% 边距
+        const qrCanvasSize = genQrSize + 2 * qrPadding;
+        const qrCanvas = document.createElement('canvas');
+        qrCanvas.width = qrCanvasSize;
+        qrCanvas.height = qrCanvasSize;
+        const qrCtx = qrCanvas.getContext('2d');
+
+        // 白色背景
+        qrCtx.fillStyle = '#ffffff';
+        qrCtx.fillRect(0, 0, qrCanvasSize, qrCanvasSize);
+        // 放置二维码
+        qrCtx.drawImage(qrCanvasOriginal, qrPadding, qrPadding, genQrSize, genQrSize);
+        // 外描边
+        const borderLineWidth = Math.max(2, Math.round(qrCanvasSize * 0.05));
+        qrCtx.lineWidth = borderLineWidth;
+        qrCtx.strokeStyle = '#00a99d';
+        qrCtx.strokeRect(borderLineWidth / 2, borderLineWidth / 2, qrCanvasSize - borderLineWidth, qrCanvasSize - borderLineWidth);
+
+        // 计算二维码放置位置
+        const qrX = finalWidth - borderRight - finalQrSize;
+        const qrY = borderTop + cropH + (borderBottom - finalQrSize) / 2;
+        // 将生成的二维码缩放绘制到最终画布
+        finalCtx.drawImage(qrCanvas, 0, 0, qrCanvas.width, qrCanvas.height, qrX, qrY, finalQrSize, finalQrSize);
+
+        // 在二维码左侧添加说明文字
+        const qrTextFontSize = Math.round(textFontSize / 3); // TermsAI 字号的 1/3
+        finalCtx.font = qrTextFontSize + "px 'Noto Sans S Chinese'"; // 不加粗
+        finalCtx.fillStyle = '#ffffff';
+        finalCtx.textAlign = 'right'; // 右对齐
+        finalCtx.textBaseline = 'middle';
+
+        // 计算文字位置：二维码左侧 1% 裁剪后图片宽度的距离
+        const qrTextX = qrX - Math.round(0.01 * cropW);
+        const qrTextY = qrY + finalQrSize / 2; // 垂直居中对齐二维码
+
+        // 绘制两行文字
+        const lines = ['扫码查看', '说人话的知识图谱'];
+        const lineHeight = qrTextFontSize * 1.2; // 行高为字号的 1.2 倍
+        lines.forEach((line, index) => {
+            finalCtx.fillText(line, qrTextX, qrTextY + (index - 0.5) * lineHeight);
+        });
+
+        // 创建并显示预览
+        const previewOverlay = document.createElement('div');
+        previewOverlay.className = 'preview-overlay';
+
+        const previewImage = document.createElement('img');
+        previewImage.src = finalCanvas.toDataURL('image/png');
+        previewImage.className = 'preview-image';
+
+        previewOverlay.appendChild(previewImage);
+        document.body.appendChild(previewOverlay);
+
+        previewOverlay.addEventListener('click', function (e) {
+            if (e.target === previewOverlay) {
+                document.body.removeChild(previewOverlay);
+            }
+        });
+
+        // 恢复用户原来的视图和节点原始字体设置
+        network.moveTo({
+            position: originalPosition,
+            scale: originalScale,
+            animation: false
+        });
+        const restoreNodes = originalNodes.map(node => {
+            return { id: node.id, font: originalFontMap[node.id] || undefined };
+        });
+        network.body.data.nodes.update(restoreNodes);
+        network.redraw();
     };
     img.src = dataUrl;
 });
